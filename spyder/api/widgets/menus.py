@@ -13,7 +13,7 @@ from __future__ import annotations
 
 # Standard library imports
 import sys
-from typing import TypeVar, TYPE_CHECKING
+from typing import ClassVar, TypeVar, TYPE_CHECKING
 
 # Third party imports
 import qstylizer.style
@@ -221,7 +221,12 @@ class SpyderMenu(QMenu, SpyderFontsMixin):
 
         # Style
         self.css = self._generate_stylesheet()
-        self.setStyleSheet(self.css.toString())
+        # Re-use cached CSS string to avoid re-serializing the stylesheet
+        # object tree on every menu instantiation (hot path at startup).
+        css_str_key = (type(self), '_css_str')
+        if css_str_key not in self._stylesheet_cache:
+            self._stylesheet_cache[css_str_key] = self.css.toString()
+        self.setStyleSheet(self._stylesheet_cache[css_str_key])
 
         style = SpyderMenuProxyStyle(None)
         style.setParent(self)
@@ -513,9 +518,20 @@ class SpyderMenu(QMenu, SpyderFontsMixin):
             else:
                 set_menu_icons(self, True)
 
+    # Cache for _generate_stylesheet result, keyed per subclass.
+    # Cleared by clear_stylesheet_cache() on theme/font changes.
+    _stylesheet_cache: ClassVar[dict] = {}
+
+    @classmethod
+    def clear_stylesheet_cache(cls) -> None:
+        """Clear the cached stylesheet so it is regenerated on next use."""
+        cls._stylesheet_cache.clear()
+
     @classmethod
     def _generate_stylesheet(cls) -> qstylizer.style.StyleSheet:
-        """Generate base stylesheet for menus."""
+        """Generate base stylesheet for menus (result cached per subclass)."""
+        if cls in cls._stylesheet_cache:
+            return cls._stylesheet_cache[cls]
         css = qstylizer.style.StyleSheet()
         font = cls.get_font(SpyderFontType.Interface)
 
@@ -577,6 +593,7 @@ class SpyderMenu(QMenu, SpyderFontsMixin):
                 backgroundColor="transparent",
             )
 
+        cls._stylesheet_cache[cls] = css
         return css
 
     def __str__(self) -> str:
