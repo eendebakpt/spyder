@@ -819,6 +819,13 @@ class MainWindow(QMainWindow, SpyderMainWindowMixin, SpyderShortcutsMixin):
         self.is_setting_up = False
         self.sig_setup_finished.emit()
 
+        # Load plugins that were deferred to keep initial startup fast.
+        # A single-shot QTimer with a small delay lets the event loop process
+        # the first paint of the window before we start importing modules.
+        if PLUGIN_REGISTRY._deferred_plugins:
+            from qtpy.QtCore import QTimer
+            QTimer.singleShot(50, PLUGIN_REGISTRY._load_deferred_plugins)
+
     def reopen_last_session(self):
         """
         Reopen last session if no project is active.
