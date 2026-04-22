@@ -13,7 +13,7 @@ from __future__ import annotations
 
 # Standard library imports
 import sys
-from typing import TypeVar, TYPE_CHECKING
+from typing import ClassVar, TypeVar, TYPE_CHECKING
 
 # Third party imports
 import qstylizer.style
@@ -513,9 +513,18 @@ class SpyderMenu(QMenu, SpyderFontsMixin):
             else:
                 set_menu_icons(self, True)
 
+    _stylesheet_cache: ClassVar[dict] = {}
+
+    @classmethod
+    def clear_stylesheet_cache(cls) -> None:
+        """Clear the cached stylesheet so it is regenerated on next use."""
+        cls._stylesheet_cache.clear()
+
     @classmethod
     def _generate_stylesheet(cls) -> qstylizer.style.StyleSheet:
-        """Generate base stylesheet for menus."""
+        """Generate base stylesheet for menus (result cached per subclass)."""
+        if cls in cls._stylesheet_cache:
+            return cls._stylesheet_cache[cls]
         css = qstylizer.style.StyleSheet()
         font = cls.get_font(SpyderFontType.Interface)
 
@@ -577,6 +586,7 @@ class SpyderMenu(QMenu, SpyderFontsMixin):
                 backgroundColor="transparent",
             )
 
+        cls._stylesheet_cache[cls] = css
         return css
 
     def __str__(self) -> str:

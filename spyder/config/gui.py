@@ -85,6 +85,11 @@ def set_font(font, section='appearance', option='font'):
 
     FONT_CACHE[(section, option, font_size_delta)] = font
 
+    # Invalidate the SpyderMenu stylesheet cache so menus rebuild with the
+    # new font on their next instantiation.
+    from spyder.api.widgets.menus import SpyderMenu
+    SpyderMenu.clear_stylesheet_cache()
+
 
 def get_color_scheme(name):
     """Get syntax color scheme"""
