@@ -23,6 +23,7 @@ from qtpy.QtCore import QObject, Signal
 from spyder import dependencies
 from spyder.api.translations import _
 from spyder.app.find_plugins import (
+    _LazyPluginClass,
     find_external_plugins,
     find_internal_plugins,
 )
@@ -196,6 +197,10 @@ class SpyderPluginRegistry(QObject, _PluginRegistryPreferencesAdapter):
         # This is used to allow disabling external plugins through Preferences
         self._external_plugins_conf_section = "external_plugins"
 
+        # Deferred plugin list: populated by _load_and_register_plugins and
+        # consumed by _load_deferred_plugins after the window is shown.
+        self._deferred_plugins: list[_LazyPluginClass] = []
+
     # ---- Private API
     # -------------------------------------------------------------------------
     def _load_and_register_plugins(self):
@@ -255,6 +260,15 @@ class SpyderPluginRegistry(QObject, _PluginRegistryPreferencesAdapter):
         for plugin_name in internal_plugins:
             PluginClass = internal_plugins[plugin_name]
 
+            # Plugins marked for deferred loading are skipped here and
+            # registered later (after the window is visible) by
+            # _load_deferred_plugins().  Skipping them avoids importing their
+            # modules during setup(), which is the primary startup cost.
+            if getattr(PluginClass, "LAZY_LOAD", False):
+                if plugin_name in enabled_plugins:
+                    self._deferred_plugins.append(PluginClass)
+                continue
+
             # Update plugin dependency information
             self._update_plugin_info(PluginClass)
 
@@ -299,6 +313,42 @@ class SpyderPluginRegistry(QObject, _PluginRegistryPreferencesAdapter):
                 except Exception as error:
                     print("%s: %s" % (PluginClass, str(error)), file=STDERR)
                     traceback.print_exc(file=STDERR)
+
+    def _load_deferred_plugins(self):
+        """
+        Register plugins that were deferred during initial setup.
+
+        This is called via a QTimer after the main window becomes visible so
+        that deferred plugin modules are imported outside the critical startup
+        path, keeping the time-to-first-paint as short as possible.
+        """
+        from qtpy.QtWidgets import QApplication
+
+        for PluginClass in self._deferred_plugins:
+            # Resolve the lazy proxy to the real class now that we are
+            # outside the startup hot-path.
+            if isinstance(PluginClass, _LazyPluginClass):
+                PluginClass = PluginClass._resolve()
+
+            # Honour the web-widget availability check.
+            if (
+                PluginClass.REQUIRE_WEB_WIDGETS
+                and not self._are_web_widgets_available()
+            ):
+                continue
+
+            # Register dependency metadata and instantiate.
+            self._update_plugin_info(PluginClass)
+            try:
+                self.register_plugin(self.main, PluginClass, external=False)
+            except Exception as error:
+                print("%s: %s" % (PluginClass, str(error)), file=STDERR)
+                traceback.print_exc(file=STDERR)
+
+            # Keep the UI responsive between each deferred plugin load.
+            QApplication.processEvents()
+
+        self._deferred_plugins.clear()
 
     def _update_dependents(self, plugin: str, dependent_plugin: str, key: str):
         """Add `dependent_plugin` to the list of dependents of `plugin`."""
@@ -500,6 +550,10 @@ class SpyderPluginRegistry(QObject, _PluginRegistryPreferencesAdapter):
             If the ``PluginClass`` does not inherit from any of
             :data:`spyder.app.registry.SpyderPluginClass`.
         """
+        # Resolve lazy proxy to the real class before the issubclass check.
+        if isinstance(PluginClass, _LazyPluginClass):
+            PluginClass = PluginClass._resolve()
+
         if not issubclass(PluginClass, SpyderPluginV2):
             raise TypeError(
                 f"{PluginClass} does not inherit from SpyderPluginV2"
