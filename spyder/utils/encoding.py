@@ -24,11 +24,7 @@ import sys
 import time
 import errno
 
-# Third-party imports
-import chardet
-
 # Local imports
-from spyder.utils.external.binaryornot.check import is_binary
 
 
 PREFERRED_ENCODING = locale.getpreferredencoding()
@@ -148,6 +144,7 @@ def get_coding(text, force_chardet=False, default_codec=None):
 
     # Fallback using chardet
     if isinstance(text, bytes) and (force_chardet or default_codec is None):
+        import chardet
         # Use detect because it's thread-safe since Chardet 7.0
         result = chardet.detect(text)
         return result['encoding']
@@ -370,6 +367,7 @@ def is_text_file(filename):
     Test if the given path is a text-like file.
     """
     try:
+        from spyder.utils.external.binaryornot.check import is_binary
         return not is_binary(filename)
     except (OSError, IOError):
         return False
