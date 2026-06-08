@@ -28,7 +28,6 @@ import logging
 # Third party imports
 from packaging.version import parse
 import psutil
-from requests.structures import CaseInsensitiveDict
 from spyder_kernels.utils.pythonenv import is_conda_env
 
 # Local imports
@@ -188,10 +187,12 @@ def alter_subprocess_kwargs_by_platform(**kwargs):
 
         # Ensure Windows subprocess environment has certain variables
         if "env" in kwargs:
-            env = CaseInsensitiveDict(kwargs.get("env"))
+            env = kwargs["env"]
+            env_lower = {k.lower(): k for k in env}
             for env_var in ['SYSTEMROOT', 'SYSTEMDRIVE', 'USERPROFILE']:
-                env.setdefault(env_var, os.getenv(env_var))
-            kwargs["env"] = dict(env)
+                if env_var.lower() not in env_lower:
+                    env[env_var] = os.getenv(env_var)
+            kwargs["env"] = env
     else:
         # linux and macOS
         if "env" in kwargs:

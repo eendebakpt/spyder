@@ -9,6 +9,17 @@
 import os
 import sys
 
+# PEP 810: Enable global lazy imports on Python 3.15+ for faster startup.
+# sys.set_lazy_imports() enables lazy loading for all subsequent imports.
+# The filter (installed below) ensures modules with side effects stay eager.
+if hasattr(sys, 'set_lazy_imports'):
+    sys.set_lazy_imports('all')
+
+# PEP 810: Install lazy imports filter to force eager loading of modules
+# that have import-time side effects (zmq, Qt, typing, etc.).
+from spyder.app.lazy_imports_filter import install_filter
+install_filter()
+
 # Remove PYTHONPATH paths from sys.path before other imports to protect against
 # shadowed standard libraries.
 if os.environ.get('PYTHONPATH'):
