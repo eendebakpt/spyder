@@ -26,10 +26,6 @@ EAGER_MODULES = frozenset({
     # See spyder-ide/spyder#5324
     "zmq",
 
-    # typing uses __getattr__ for deprecated aliases (Match, Pattern, etc.)
-    # which breaks under deferred resolution
-    "typing",
-
     # Qt framework modules need proper initialization order
     # - sip API version settings
     # - QApplication not existing when widgets are created
@@ -41,20 +37,8 @@ EAGER_MODULES = frozenset({
     # qtpy sets the Qt binding at import time
     "qtpy",
 
-    # Modules that register plugins/hooks at import time
-    "pkg_resources",
-    "setuptools",
-
     # Modules with __init__ side effects that Spyder depends on
     "spyder.requirements",  # check_qt() runs at import
-
-    # watchdog accesses submodules as attributes (watchdog.utils.BaseThread)
-    # which requires eager import of the package hierarchy
-    "watchdog",
-
-    # pygments has circular imports between submodules that break under
-    # lazy resolution (e.g. pygments.lexers.Python3Lexer)
-    "pygments",
 })
 
 # Module prefixes that should always be imported eagerly.
@@ -64,9 +48,6 @@ EAGER_PREFIXES = (
     "sip",
     "qtpy.",
     "zmq.",
-    "typing.",
-    "watchdog.",
-    "pygments.",
 )
 
 
