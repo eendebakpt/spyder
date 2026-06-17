@@ -22,19 +22,16 @@ import sys
 # Modules that MUST be imported eagerly because they have important
 # import-time side effects or initialization requirements.
 EAGER_MODULES = frozenset({
-    # ZMQ must be imported early to prevent race conditions
-    # See spyder-ide/spyder#5324
-    "zmq",
-
     # Qt framework modules need proper initialization order
     # - sip API version settings
     # - QApplication not existing when widgets are created
     # - DLL loading on Windows
+    # - qtpy uses contextlib.suppress(ImportError) around imports that
+    #   create lazy references which fail on deferred resolution
     "sip",
     "sipbuild",
     "PyQt5",
-
-    # qtpy sets the Qt binding at import time
+    "PyQt6",
     "qtpy",
 
     # Modules with __init__ side effects that Spyder depends on
@@ -45,9 +42,9 @@ EAGER_MODULES = frozenset({
 # These match any module whose fully-qualified name starts with the prefix.
 EAGER_PREFIXES = (
     "PyQt5.",
+    "PyQt6.",
     "sip",
     "qtpy.",
-    "zmq.",
 )
 
 
